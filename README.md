@@ -132,10 +132,3 @@ Cache size: 100 pages
 
   * `database_engine.cpp`: The core "engine" file. This contains all the class and struct definitions for the `StorageEngine`, `BPlusTreeIndex`, `BufferPool`, `JournalManager`, `Page`, and `Record`.
   * `main_test.cpp`: The "test drive" and benchmark program. This file includes the engine and acts as a client, running commands, timing performance, and printing results to the console.
-
-git init
-git add .
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/PunVas/db_engn.git
-git push -u origin main
