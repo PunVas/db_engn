@@ -1,4 +1,3 @@
-// main db engine file
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -11,6 +10,15 @@
 #include <sstream>
 #include <iomanip>
 #include <sys/stat.h>
+#include <thread>
+#include <mutex>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+
+// ==========================================
+// part 1: the actual db engine
+// ==========================================
 
 namespace CFG{
 	constexpr size_t P_SZ=4096;
@@ -23,7 +31,7 @@ namespace CFG{
 	const std::string J_FILE="journal.log";
 }
 
-// core data struct
+// core stuff
 struct Rec{
 	char key[CFG::K_SZ];
 	char val[CFG::V_SZ];
@@ -66,7 +74,7 @@ struct Pg{
 	}
 };
 
-// WAL log
+// the log (WAL)
 class JMan{
 private:
 	std::fstream jFile;
@@ -119,7 +127,7 @@ public:
 		
 		jFile.seekp(0,std::ios::end);
 		jFile.write(reinterpret_cast<char*>(&ent),sizeof(JEnt));
-		jFile.flush(); // need this for safety
+		jFile.flush(); // better safe than sorry
 	}
 	
 	void commit(){
@@ -191,7 +199,7 @@ public:
 	}
 };
 
-// magic B-Tree part
+// magic b-tree stuff
 struct BNode{
 	bool leaf;
 	std::vector<std::string> keys;
@@ -530,3 +538,129 @@ public:
 		std::cout<<"Cache size: "<<CFG::C_SZ<<" pages"<<std::endl;
 	}
 };
+
+
+// ==========================================
+// part 2: the server part
+// ==========================================
+
+// mutex so threads don't fight
+std::mutex db_mutex;
+
+class DBServer {
+    int server_fd;
+    SEng& db; // pointer to the boss
+    bool running;
+
+public:
+    DBServer(SEng& engine, int port) : db(engine), running(true) {
+        // make a socket
+        if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+            perror("Socket failed");
+            exit(EXIT_FAILURE);
+        }
+
+        sockaddr_in address;
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = INADDR_ANY;
+        address.sin_port = htons(port);
+
+        // bind it
+        if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+            perror("Bind failed");
+            exit(EXIT_FAILURE);
+        }
+
+        // listen for connections
+        if (listen(server_fd, 3) < 0) {
+            perror("Listen failed");
+            exit(EXIT_FAILURE);
+        }
+        
+        std::cout << "Server listening on port " << port << "..." << std::endl;
+    }
+
+    // handle a client
+    void handle_client(int new_socket) {
+        char buffer[1024] = {0};
+        
+        while (true) {
+            memset(buffer, 0, 1024);
+            int valread = read(new_socket, buffer, 1024);
+            if (valread <= 0) break; // gone
+
+            std::string request(buffer);
+            std::stringstream ss(request);
+            std::string cmd, key, val;
+            ss >> cmd >> key;
+
+            std::string response;
+
+            // safety first
+            // lock it up so we don't crash
+            {
+                std::lock_guard<std::mutex> lock(db_mutex);
+                
+                if (cmd == "PUT") {
+                    // format: PUT key value
+                    getline(ss, val); 
+                    if (!val.empty() && val[0] == ' ') val = val.substr(1); // trim it
+                    
+                    if (db.insert(key, val)) response = "OK: Inserted\n";
+                    else if (db.update(key, val)) response = "OK: Updated\n";
+                    else response = "ERR: Failed\n";
+                    
+                } else if (cmd == "GET") {
+                    // format: GET key
+                    auto result = db.get(key);
+                    if (result.first) response = "OK: " + result.second + "\n";
+                    else response = "ERR: Not Found\n";
+                    
+                } else if (cmd == "DEL") {
+                    if (db.remove(key)) response = "OK: Deleted\n";
+                    else response = "ERR: Not Found\n";
+                } else {
+                    response = "ERR: Unknown Command\n";
+                }
+            } // unlocks auto-magically
+
+            // send back
+            send(new_socket, response.c_str(), response.length(), 0);
+        }
+        
+        close(new_socket);
+    }
+
+    void start() {
+        while (running) {
+            int new_socket;
+            sockaddr_in address;
+            int addrlen = sizeof(address);
+
+            // accept new guy
+            if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+                perror("Accept failed");
+                continue;
+            }
+
+            // spin up a thread
+            // let it run loose
+            std::thread client_thread(&DBServer::handle_client, this, new_socket);
+            client_thread.detach(); 
+        }
+    }
+};
+
+// main driver
+int main() {
+    std::cout << "Initializing Database Engine..." << std::endl;
+    SEng engine; // fire up the engine
+    
+    // stats checks
+    engine.stats();
+
+    DBServer server(engine, 8080);
+    server.start();
+
+    return 0;
+}
