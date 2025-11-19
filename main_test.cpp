@@ -1,17 +1,22 @@
-// my test file for the db engine
-// does this thing even work?
-
-#include "database_engine.cpp" // just jam the whole engine in here
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <memory>
+#include <cstring>
 #include <chrono>
+#include <algorithm>
+#include <sstream>
 #include <iomanip>
+#include <sys/stat.h>
 
-// i'm lazy
+//yeah am lazzzeee
 using namespace std;
 
 int main(){
 	cout << "╔══════════════════════════════════════════════════════╗\n";
-	cout << "║    MINI DATABASE ENGINE - C++ Implementation         ║\n";
+	cout << "║     MINI DATABASE ENGINE - C++ Implementation        ║\n";
 	cout << "╚══════════════════════════════════════════════════════╝\n\n";
 	
 	// ok, let's fire it up
@@ -86,13 +91,13 @@ int main(){
 	cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 	
 	vector<string> keys_to_find = {
-		"bench:100",  // start
+		"bench:100",  //start
 		"bench:2500",
-		"bench:5000", // middle
+		"bench:5000", //midddle
 		"bench:7500",
-		"bench:9999", // end
-		"user:1001"   // one from the first batch
-		// "bench:-1", // tried this, failed, lol
+		"bench:9999", //end
+		"user:1001"   //one from the first batch
+		// "bench:-1", // tried this, failed, lol XD, will fix it next
 	};
 	
 	cout << "\nTesting FAST (BTree) search...\n";
@@ -128,9 +133,9 @@ int main(){
 	// The fun part
 	cout << "\n[SPEEDUP ANALYSIS]\n";
     if (dur_idx > 0) {
-	    double speedup = static_cast<double>(dur_lin) / dur_idx;
-	    cout << "  Indexed search is " << fixed << setprecision(1) 
-                 << speedup << "x faster!\n";
+        double speedup = static_cast<double>(dur_lin) / dur_idx;
+        cout << "  Indexed search is " << fixed << setprecision(1) 
+                  << speedup << "x faster!\n";
     } else {
         // handle divide by zero if index is too fast (lol)
         cout << "  Indexed search was basically instant (0 us).\n";
@@ -145,7 +150,7 @@ int main(){
 	db.stats(); // call the stats func
 	
 	cout << "\n╔══════════════════════════════════════════════════════╗\n";
-	cout << "║    Demo Complete! Database files saved to disk.      ║\n";
+	cout << "║     Demo Complete! Database files saved to disk.     ║\n";
 	cout << "╚══════════════════════════════════════════════════════╝\n";
 	
 	return 0; // all done
