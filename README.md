@@ -2,7 +2,7 @@
 
 just a toy database engine i wrote in c++.
 
-it's not for production, just shows how a db works under the hood. the core logic is in the headers/server files, and the test/demo is in `db_test.cpp`.
+it's not for production, just shows how a db works under the hood. the core logic is in the datbase_engine.cpp, and the test/demo is in `db_test.cpp`.
 
 ## features
 
